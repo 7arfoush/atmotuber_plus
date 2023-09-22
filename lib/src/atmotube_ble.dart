@@ -17,32 +17,28 @@ import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 
 class Atmotuber {
   // init
-  FlutterBluePlus flutterBlue = FlutterBluePlus.instance;
   BluetoothDevice? device;
   bool shouldStop = false;
   var atmotubeData = const AtmotubeData();
   var atmotubeDataHist = const AtmotubeData();
   StreamController<AtmotubeData> satm = StreamController();
   StreamController<AtmotubeData> hatm = StreamController();
-  static BluetoothDeviceState _deviceState = BluetoothDeviceState.disconnected;
+  static BluetoothConnectionState _deviceState =
+      BluetoothConnectionState.disconnected;
   StreamSubscription<Map<String, List<int>>>? subscription;
   StreamSubscription<List<int>>? subscription2;
 
   /// [_handleBluetoothDeviceState] a private method that set device connection state
-  void _handleBluetoothDeviceState(BluetoothDeviceState deviceState) {
+  void _handleBluetoothDeviceState(BluetoothConnectionState deviceState) {
     _deviceState = deviceState;
   } // _handleBluetoothDeviceState
 
   /// [getDeviceState] a  method that handles device connection state
   String getDeviceState() {
-    if (_deviceState == BluetoothDeviceState.connected) {
+    if (_deviceState == BluetoothConnectionState.connected) {
       return 'connected';
-    } else if (_deviceState == BluetoothDeviceState.disconnected) {
+    } else if (_deviceState == BluetoothConnectionState.disconnected) {
       return 'disconnected';
-    } else if (_deviceState == BluetoothDeviceState.disconnecting) {
-      return 'disconnecting';
-    } else if (_deviceState == BluetoothDeviceState.connecting) {
-      return 'connecting';
     } else {
       return 'error';
     }
@@ -55,20 +51,21 @@ class Atmotuber {
     // _handleBluetoothDeviceState(BluetoothDeviceState.disconnected);
 
     // check if an atmotube is already connected:
-    var connected = await flutterBlue.connectedDevices;
+    var connected = await FlutterBluePlus.connectedSystemDevices;
     for (var element in connected) {
       if (element.name == DeviceServiceConfig().deviceName) {
         device = element;
-        _handleBluetoothDeviceState(BluetoothDeviceState.connected);
+        _handleBluetoothDeviceState(BluetoothConnectionState.connected);
       } //if
     } //for
 
-    if (_deviceState == BluetoothDeviceState.disconnected) {
+    if (_deviceState == BluetoothConnectionState.disconnected) {
       // scan for atmotube
-      dynamic scan =
-          await flutterBlue.startScan(timeout: const Duration(seconds: 4));
+      await FlutterBluePlus.startScan(timeout: const Duration(seconds: 4));
 
-      for (dynamic s in scan) {
+      var results = await FlutterBluePlus.scanResults.first;
+
+      for (ScanResult s in results) {
         // looking for non null devices
         if (s.advertisementData.serviceUuids.isNotEmpty) {
           // looking for atmotube Pro
@@ -83,10 +80,10 @@ class Atmotuber {
       if (device == null) {
         throw AtmotubeNotNearException(message: 'ATMOTUBE is not near to you!');
       }
-      _handleBluetoothDeviceState(BluetoothDeviceState.connecting);
+      _handleBluetoothDeviceState(BluetoothConnectionState.connecting);
       // atmotube connection
       await device!.connect();
-      _handleBluetoothDeviceState(BluetoothDeviceState.connected);
+      _handleBluetoothDeviceState(BluetoothConnectionState.connected);
       await handleStreams();
     } //if
 
@@ -104,7 +101,7 @@ class Atmotuber {
     //     await getCharacteristics(uartService);
 
     device!.state.listen((event) async {
-      if (event == BluetoothDeviceState.disconnected) {
+      if (event == BluetoothConnectionState.disconnected) {
         // for (BluetoothCharacteristic c in characteristics) {
         //   c.setNotifyValue(false);
         // }
@@ -127,14 +124,14 @@ class Atmotuber {
     hatm = StreamController();
 
     //look for atmotube among connected devices
-    var connected = await flutterBlue.connectedDevices;
+    var connected = await FlutterBluePlus.connectedSystemDevices;
     for (var element in connected) {
       if (element.name == DeviceServiceConfig().deviceName) {
         element.state.listen((event) {
           //(event);
         });
         await element.disconnect();
-        _handleBluetoothDeviceState(BluetoothDeviceState.disconnected);
+        _handleBluetoothDeviceState(BluetoothConnectionState.disconnected);
         shouldStop = true;
       }
     }
@@ -277,7 +274,7 @@ class Atmotuber {
   /// [wrapper] A wrapper method that handles device real-time data collection
   Future<void> wrapper({required Function callback}) async {
     // check if an atmotube is already connected and ready for the data collection
-    if (_deviceState == BluetoothDeviceState.disconnected) {
+    if (_deviceState == BluetoothConnectionState.disconnected) {
       throw AtmotubeConnectionException(
           message: 'Please first connect ATMOTUBE Pro');
     }
@@ -334,7 +331,7 @@ class Atmotuber {
   /// [histwrapper] A wrapper method that handles device history data collection
   Future<void> histwrapper({required Function callback}) async {
     // check if an atmotube is already connected and ready for the data collection
-    if (_deviceState == BluetoothDeviceState.disconnected) {
+    if (_deviceState == BluetoothConnectionState.disconnected) {
       throw AtmotubeConnectionException(
           message: 'Please first connect ATMOTUBE Pro');
     }
