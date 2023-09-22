@@ -73,11 +73,11 @@ class Atmotuber {
 
 // start listening before we call startScan so we do not miss the result
       Future<BluetoothDevice?> myDeviceFuture = myDeviceStream.first
-          .timeout(const Duration(seconds: 10))
+          .timeout(const Duration(seconds: 59))
           .catchError((error) => null);
 
       await FlutterBluePlus.startScan(
-          timeout: const Duration(seconds: 10),
+          timeout: const Duration(seconds: 59),
           oneByOne: true,
           androidUsesFineLocation: true);
 
@@ -98,9 +98,9 @@ class Atmotuber {
       if (device == null) {
         throw AtmotubeNotNearException(message: 'ATMOTUBE is not near to you!');
       }
-      print(device!.localName);
       // atmotube connection
-      await device!.connect();
+      // ignore: prefer_const_constructors
+      await device!.connect(timeout: Duration(seconds: 59));
       _handleBluetoothDeviceState(BluetoothConnectionState.connected);
       await handleStreams();
     } //if
@@ -144,8 +144,8 @@ class Atmotuber {
     //look for atmotube among connected devices
     var connected = await FlutterBluePlus.connectedSystemDevices;
     for (var element in connected) {
-      if (element.name == DeviceServiceConfig().deviceName) {
-        element.state.listen((event) {
+      if (element.localName == DeviceServiceConfig().deviceName) {
+        element.connectionState.listen((event) {
           //(event);
         });
         await element.disconnect();
@@ -307,21 +307,21 @@ class Atmotuber {
             DeviceServiceConfig().statusCharacteristic);
     await statusCharacteristics.setNotifyValue(true);
     Stream<Map<String, List<int>>> status =
-        statusCharacteristics.value.map((event) => {"status": event});
+        statusCharacteristics.lastValueStream.map((event) => {"status": event});
     // bme stream subscription
     BluetoothCharacteristic bmeCharacteristics = characteristics.firstWhere(
         (element) =>
             element.uuid.toString() == DeviceServiceConfig().bmeCharacteristic);
     await bmeCharacteristics.setNotifyValue(true);
     Stream<Map<String, List<int>>> bme =
-        bmeCharacteristics.value.map((event) => {"bme": event});
+        bmeCharacteristics.lastValueStream.map((event) => {"bme": event});
     // pm stream subscription
     BluetoothCharacteristic pmCharacteristics = characteristics.firstWhere(
         (element) =>
             element.uuid.toString() == DeviceServiceConfig().pmCharacteristic);
     await pmCharacteristics.setNotifyValue(true);
     Stream<Map<String, List<int>>> pm =
-        pmCharacteristics.value.map((event) => {"pm": event});
+        pmCharacteristics.lastValueStream.map((event) => {"pm": event});
 
     // voc stream subscription
     BluetoothCharacteristic vocCharacteristics = characteristics.firstWhere(
@@ -330,7 +330,7 @@ class Atmotuber {
             DeviceServiceConfig().vocCharacteristics);
     await vocCharacteristics.setNotifyValue(true);
     Stream<Map<String, List<int>>> voc =
-        vocCharacteristics.value.map((event) => {"voc": event});
+        vocCharacteristics.lastValueStream.map((event) => {"voc": event});
 
     //  update atmotubeData object and listen to its changes.
     subscription = StreamGroup.merge([status, bme, pm, voc]).listen((event) {
@@ -401,7 +401,7 @@ class Atmotuber {
     List<DateTime> datetimeList = [];
     List<DateTime> datetimeRange = [];
     //listener
-    subscription2 = rx.value.listen((event) {
+    subscription2 = rx.lastValueStream.listen((event) {
       //setup timer for end of history if no communication for 10 seconds
       if (timeout != null) timeout!.cancel();
       timeout = Timer(const Duration(seconds: 10), () async {
