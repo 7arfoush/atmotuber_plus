@@ -99,7 +99,7 @@ class Atmotuber {
       }
       // atmotube connection
       // ignore: prefer_const_constructors
-      await device!.connect(timeout: Duration(seconds: 30));
+      await device!.connect(autoConnect: true);
       _handleBluetoothDeviceState(BluetoothConnectionState.connected);
       await handleStreams();
     } //if
