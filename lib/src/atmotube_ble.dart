@@ -52,8 +52,8 @@ class Atmotuber {
 
     // check if an atmotube is already connected:
     var connected = await FlutterBluePlus.connectedSystemDevices;
-    for (var element in connected) {
-      if (element.name == DeviceServiceConfig().deviceName) {
+    for (BluetoothDevice element in connected) {
+      if (element.localName == DeviceServiceConfig().deviceName) {
         device = element;
         _handleBluetoothDeviceState(BluetoothConnectionState.connected);
       } //if
@@ -61,26 +61,41 @@ class Atmotuber {
 
     if (_deviceState == BluetoothConnectionState.disconnected) {
       // scan for atmotube
-      await FlutterBluePlus.startScan(timeout: const Duration(seconds: 4));
+      Stream<BluetoothDevice?> myDeviceStream = FlutterBluePlus.scanResults
+          .map((list) => list.first)
+          .where((r) =>
+              r.device.localName == DeviceServiceConfig().deviceName &&
+              (r.advertisementData.serviceUuids.last ==
+                      DeviceServiceConfig().deviceService ||
+                  r.advertisementData.serviceUuids.last.toLowerCase() ==
+                      DeviceServiceConfig().deviceService))
+          .map((r) => r.device);
 
-      var results = await FlutterBluePlus.scanResults.first;
+// start listening before we call startScan so we do not miss the result
+      Future<BluetoothDevice?> myDeviceFuture = myDeviceStream.first
+          .timeout(const Duration(seconds: 10))
+          .catchError((error) => null);
 
-      for (ScanResult s in results) {
-        // looking for non null devices
-        if (s.advertisementData.serviceUuids.isNotEmpty) {
-          // looking for atmotube Pro
-          if (s.advertisementData.serviceUuids.last ==
-                  DeviceServiceConfig().deviceService.toLowerCase() ||
-              s.advertisementData.serviceUuids.last ==
-                  DeviceServiceConfig().deviceService) {
-            device = s.device;
-          }
-        }
-      }
+      await FlutterBluePlus.startScan(
+          timeout: const Duration(seconds: 10), oneByOne: true);
+
+      device = await myDeviceFuture;
+
+      // for (ScanResult s in results) {
+      //   // looking for non null devices
+      //   if (s.advertisementData.serviceUuids.isNotEmpty) {
+      //     // looking for atmotube Pro
+      //     if (s.advertisementData.serviceUuids.last ==
+      //             DeviceServiceConfig().deviceService.toLowerCase() ||
+      //         s.advertisementData.serviceUuids.last ==
+      //             DeviceServiceConfig().deviceService) {
+      //       device = s.device;
+      //     }
+      //   }
+      // }
       if (device == null) {
         throw AtmotubeNotNearException(message: 'ATMOTUBE is not near to you!');
       }
-      _handleBluetoothDeviceState(BluetoothConnectionState.connecting);
       // atmotube connection
       await device!.connect();
       _handleBluetoothDeviceState(BluetoothConnectionState.connected);
@@ -100,7 +115,7 @@ class Atmotuber {
     // List<BluetoothCharacteristic> uartCharacteristics =
     //     await getCharacteristics(uartService);
 
-    device!.state.listen((event) async {
+    device!.connectionState.listen((event) async {
       if (event == BluetoothConnectionState.disconnected) {
         // for (BluetoothCharacteristic c in characteristics) {
         //   c.setNotifyValue(false);
