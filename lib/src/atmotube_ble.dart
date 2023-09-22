@@ -64,11 +64,10 @@ class Atmotuber {
       Stream<BluetoothDevice?> myDeviceStream = FlutterBluePlus.scanResults
           .map((list) => list.first)
           .where((r) =>
-              r.device.localName == DeviceServiceConfig().deviceName &&
-              (r.advertisementData.serviceUuids.last ==
-                      DeviceServiceConfig().deviceService ||
-                  r.advertisementData.serviceUuids.last.toLowerCase() ==
-                      DeviceServiceConfig().deviceService))
+              r.advertisementData.serviceUuids.last ==
+                  DeviceServiceConfig().deviceService ||
+              r.advertisementData.serviceUuids.last.toLowerCase() ==
+                  DeviceServiceConfig().deviceService)
           .map((r) => r.device);
 
 // start listening before we call startScan so we do not miss the result
