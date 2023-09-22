@@ -73,11 +73,11 @@ class Atmotuber {
 
 // start listening before we call startScan so we do not miss the result
       Future<BluetoothDevice?> myDeviceFuture = myDeviceStream.first
-          .timeout(const Duration(seconds: 59))
+          .timeout(const Duration(seconds: 30))
           .catchError((error) => null);
 
       await FlutterBluePlus.startScan(
-          timeout: const Duration(seconds: 59),
+          timeout: const Duration(seconds: 30),
           oneByOne: true,
           androidUsesFineLocation: true);
 
@@ -100,7 +100,7 @@ class Atmotuber {
       }
       // atmotube connection
       // ignore: prefer_const_constructors
-      await device!.connect(timeout: Duration(seconds: 59));
+      await device!.connect(timeout: Duration(seconds: 30));
       _handleBluetoothDeviceState(BluetoothConnectionState.connected);
       await handleStreams();
     } //if
