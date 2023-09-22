@@ -19,21 +19,21 @@ import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 
 class Atmotuber {
   // init
-  FlutterBluePlus flutterBlue = FlutterBluePlus.instance;
   BluetoothDevice? device;
   bool shouldStop = false;
   var atmotubeData = const AtmotubeData();
   var atmotubeDataHist = const AtmotubeData();
   StreamController<AtmotubeData> satm = StreamController();
   StreamController<AtmotubeData> hatm = StreamController();
-  static BluetoothDeviceState _deviceState = BluetoothDeviceState.disconnected;
+  static BluetoothConnectionState _deviceState =
+      BluetoothConnectionState.disconnected;
   StreamSubscription<Map<String, List<int>>>? subscription;
   StreamSubscription<List<int>>? subscription2;
   StreamSubscription? statusStream;
   String deviceState = 'disconnected';
   Completer<BluetoothDevice?>? completer;
-  StreamSubscription<BluetoothState>? btStream;
-  BluetoothState btState = BluetoothState.unknown;
+  StreamSubscription<BluetoothAdapterState>? btStream;
+  BluetoothAdapterState btState = BluetoothAdapterState.unknown;
 
   /// [reset] is a method that reinitialize all the Atmotuber variables
   void reset() async {
@@ -44,15 +44,14 @@ class Atmotuber {
     atmotubeDataHist = const AtmotubeData();
     satm = StreamController();
     hatm = StreamController();
-    _deviceState = BluetoothDeviceState.disconnected;
+    _deviceState = BluetoothConnectionState.disconnected;
     subscription = null;
     subscription2 = null;
     statusStream = null;
     deviceState = 'disconnected';
     completer = null;
     btStream = null;
-    btState = BluetoothState.unknown;
-    flutterBlue = FlutterBluePlus.instance;
+    btState = BluetoothAdapterState.unknown;
   }
 
   /// [getDeviceState] a  method that handles device connection state
@@ -61,11 +60,11 @@ class Atmotuber {
       await statusStream!.cancel();
     }
     if (device != null) {
-      statusStream = device!.state.listen((event) {
-        if (event == BluetoothDeviceState.disconnected) {
+      statusStream = device!.connectionState.listen((event) {
+        if (event == BluetoothConnectionState.disconnected) {
           deviceState = 'disconnected';
           print(deviceState);
-        } else if (event == BluetoothDeviceState.connected) {
+        } else if (event == BluetoothConnectionState.connected) {
           deviceState = 'connected';
           print(deviceState);
         }
@@ -75,13 +74,13 @@ class Atmotuber {
     return 'disconnected';
   } // getDeviceState
 
-  /// [getBluetoothState] a  method that handles bt connection state
-  BluetoothState getBluetoothState() {
+  /// [getBluetoothState] a  method that handles bt adapter state
+  BluetoothAdapterState getBluetoothState() {
     if (btStream != null) {
       btStream!.cancel();
     }
 
-    btStream = flutterBlue.state.listen((event) {
+    btStream = FlutterBluePlus.adapterState.listen((event) {
       btState = event;
       print(btState);
     });
@@ -95,11 +94,12 @@ class Atmotuber {
 
   /// [stopScan] a  method that stops the scan
   void stopScan() async {
-    await flutterBlue.stopScan();
+    await FlutterBluePlus.stopScan();
   } // getDeviceState
 
   Future<bool> checkBluetooth() async {
-    bool isOn = await flutterBlue.isOn;
+    bool isOn =
+        await FlutterBluePlus.adapterState.first == BluetoothAdapterState.on;
     if (isOn) {
       return isOn;
     } else {
@@ -130,25 +130,26 @@ class Atmotuber {
 
     // scan for atmotube
     completer = Completer();
-    flutterBlue.startScan();
+    FlutterBluePlus.startScan();
     Stopwatch stopwatch = Stopwatch()..start();
-    flutterBlue.scanResults.listen(
+    FlutterBluePlus.scanResults.listen(
       (List<ScanResult> event) {
-        List names = event.map((e) => e.device.name).toList();
+        List names = event.map((e) => e.device.localName).toList();
         if (names.contains(DeviceServiceConfig().deviceName)) {
           if (id != null) {
             device = event
                 .where((e) =>
-                    e.device.name == DeviceServiceConfig().deviceName &&
-                    e.device.id.id == id)
+                    e.device.localName == DeviceServiceConfig().deviceName &&
+                    e.device.remoteId.str == id)
                 .first
                 .device;
           } else {
             device = event
-                .where((e) => e.device.name == DeviceServiceConfig().deviceName)
+                .where((e) =>
+                    e.device.localName == DeviceServiceConfig().deviceName)
                 .first
                 .device;
-            print(device!.id.id);
+            print(device!.remoteId.str);
           }
           if (device != null) {
             completer!.complete(device);
@@ -250,11 +251,11 @@ class Atmotuber {
       device = null;
     }
 
-    await flutterBlue.stopScan();
+    await FlutterBluePlus.stopScan();
     //look for atmotube among connected devices
-    var connected = await flutterBlue.connectedDevices;
+    var connected = await FlutterBluePlus.connectedSystemDevices;
     for (var element in connected) {
-      if (element.name == DeviceServiceConfig().deviceName) {
+      if (element.localName == DeviceServiceConfig().deviceName) {
         // element.state.listen((event) {
         //   (event);
         // });
@@ -465,21 +466,21 @@ class Atmotuber {
             DeviceServiceConfig().statusCharacteristic);
     await statusCharacteristics.setNotifyValue(true);
     Stream<Map<String, List<int>>> status =
-        statusCharacteristics.value.map((event) => {"status": event});
+        statusCharacteristics.lastValueStream.map((event) => {"status": event});
     // bme stream subscription
     BluetoothCharacteristic bmeCharacteristics = characteristics.firstWhere(
         (element) =>
             element.uuid.toString() == DeviceServiceConfig().bmeCharacteristic);
     await bmeCharacteristics.setNotifyValue(true);
     Stream<Map<String, List<int>>> bme =
-        bmeCharacteristics.value.map((event) => {"bme": event});
+        bmeCharacteristics.lastValueStream.map((event) => {"bme": event});
     // pm stream subscription
     BluetoothCharacteristic pmCharacteristics = characteristics.firstWhere(
         (element) =>
             element.uuid.toString() == DeviceServiceConfig().pmCharacteristic);
     await pmCharacteristics.setNotifyValue(true);
     Stream<Map<String, List<int>>> pm =
-        pmCharacteristics.value.map((event) => {"pm": event});
+        pmCharacteristics.lastValueStream.map((event) => {"pm": event});
 
     // voc stream subscription
     BluetoothCharacteristic vocCharacteristics = characteristics.firstWhere(
@@ -488,7 +489,7 @@ class Atmotuber {
             DeviceServiceConfig().vocCharacteristics);
     await vocCharacteristics.setNotifyValue(true);
     Stream<Map<String, List<int>>> voc =
-        vocCharacteristics.value.map((event) => {"voc": event});
+        vocCharacteristics.lastValueStream.map((event) => {"voc": event});
 
     //  update atmotubeData object and listen to its changes.
     subscription = StreamGroup.merge([status, bme, pm, voc]).listen((event) {
@@ -559,20 +560,18 @@ class Atmotuber {
     List<DateTime> datetimeList = [];
     List<DateTime> datetimeRange = [];
     //listener
-    subscription2 = rx.value.listen((event) async {
+    subscription2 = rx.lastValueStream.listen((event) async {
       //setup timer for end of history if no communication for 10 seconds
       if (timeout != null) timeout!.cancel();
-      timeout = Timer(
-          const Duration(seconds: 10),
-          await () async {
-            if (Platform.isAndroid) {
-              await Future.delayed(const Duration(seconds: 1));
-            }
-            await rx.setNotifyValue(false);
-            await subscription2?.cancel();
-            await cancelStreamHistory();
-            //print('History done');
-          });
+      timeout = Timer(const Duration(seconds: 10), () async {
+        if (Platform.isAndroid) {
+          await Future.delayed(const Duration(seconds: 1));
+        }
+        await rx.setNotifyValue(false);
+        await subscription2?.cancel();
+        await cancelStreamHistory();
+        //print('History done');
+      });
 
       final response = event.isEmpty
           ? 'None'
