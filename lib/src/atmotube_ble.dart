@@ -77,7 +77,9 @@ class Atmotuber {
           .catchError((error) => null);
 
       await FlutterBluePlus.startScan(
-          timeout: const Duration(seconds: 10), oneByOne: true);
+          timeout: const Duration(seconds: 10),
+          oneByOne: true,
+          androidUsesFineLocation: true);
 
       device = await myDeviceFuture;
 
@@ -96,6 +98,7 @@ class Atmotuber {
       if (device == null) {
         throw AtmotubeNotNearException(message: 'ATMOTUBE is not near to you!');
       }
+      print(device!.localName);
       // atmotube connection
       await device!.connect();
       _handleBluetoothDeviceState(BluetoothConnectionState.connected);
