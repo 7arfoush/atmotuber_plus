@@ -76,16 +76,11 @@ class AtmotubeConnection {
   }
 
   Future<void> connect() async {
-    if (FlutterBluePlus.isScanningNow) {
-      if (device != null) {
-        await device!.connect();
-        print(device!.connectionState);
-      } else {
-        print('no device found');
-        return;
-      }
+    if (device != null) {
+      await device!.connect();
+      print(device!.connectionState);
     } else {
-      print('scanning underway');
+      print('no device found');
       return;
     }
   }
