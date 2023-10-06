@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:async/async.dart';
+import 'package:atmotuber/src/connection.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:core';
@@ -19,211 +20,17 @@ import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 
 class Atmotuber {
   // init
-  BluetoothDevice? device;
+  AtmotubeConnection connection = AtmotubeConnection();
   bool shouldStop = false;
   var atmotubeData = const AtmotubeData();
   var atmotubeDataHist = const AtmotubeData();
   StreamController<AtmotubeData> satm = StreamController();
   StreamController<AtmotubeData> hatm = StreamController();
-  static BluetoothConnectionState _deviceState =
-      BluetoothConnectionState.disconnected;
   StreamSubscription<Map<String, List<int>>>? subscription;
   StreamSubscription<List<int>>? subscription2;
   StreamSubscription? statusStream;
   String deviceState = 'disconnected';
   Completer<BluetoothDevice?>? completer;
-  StreamSubscription<BluetoothAdapterState>? btStream;
-  BluetoothAdapterState btState = BluetoothAdapterState.unknown;
-
-  /// [reset] is a method that reinitialize all the Atmotuber variables
-  void reset() async {
-    await dropConnectionPlus();
-    device = null;
-    shouldStop = false;
-    atmotubeData = const AtmotubeData();
-    atmotubeDataHist = const AtmotubeData();
-    satm = StreamController();
-    hatm = StreamController();
-    _deviceState = BluetoothConnectionState.disconnected;
-    subscription = null;
-    subscription2 = null;
-    statusStream = null;
-    deviceState = 'disconnected';
-    completer = null;
-    btStream = null;
-    btState = BluetoothAdapterState.unknown;
-  }
-
-  /// [getDeviceState] a  method that handles device connection state
-  Future<String> getDeviceState() async {
-    if (statusStream != null) {
-      await statusStream!.cancel();
-    }
-    if (device != null) {
-      statusStream = device!.connectionState.listen((event) {
-        if (event == BluetoothConnectionState.disconnected) {
-          deviceState = 'disconnected';
-          print(deviceState);
-        } else if (event == BluetoothConnectionState.connected) {
-          deviceState = 'connected';
-          print(deviceState);
-        }
-      });
-      return deviceState;
-    }
-    return 'disconnected';
-  } // getDeviceState
-
-  /// [getBluetoothState] a  method that handles bt adapter state
-  BluetoothAdapterState getBluetoothState() {
-    if (btStream != null) {
-      btStream!.cancel();
-    }
-
-    btStream = FlutterBluePlus.adapterState.listen((event) {
-      btState = event;
-      print(btState);
-    });
-    return btState;
-  } // getDeviceState
-
-  /// [getDeviceId] a  method that catch device id (like MAC address)
-  String getDeviceId() {
-    return device != null ? device!.id.id : '';
-  } // getDeviceState
-
-  /// [stopScan] a  method that stops the scan
-  void stopScan() async {
-    await FlutterBluePlus.stopScan();
-  } // getDeviceState
-
-  Future<bool> checkBluetooth() async {
-    bool isOn =
-        await FlutterBluePlus.adapterState.first == BluetoothAdapterState.on;
-    if (isOn) {
-      return isOn;
-    } else {
-      throw AtmotubeConnectionException(message: 'Bluetooth is off');
-    }
-  }
-
-  /// [connect] a  method that stops the scan
-  Future<void> connect() async {
-    await searchAtmotubePlus();
-    if (device != null) {
-      getDeviceState();
-      print(deviceState);
-      await device!.connect();
-      getDeviceState();
-      print(deviceState);
-    }
-  } // getDeviceState
-
-  /// [searchAtmotubePlus] a method that handles device connection action
-  /// [searchAtmotubePlus] a method that handles device connection action
-  Future<BluetoothDevice?> searchAtmotubePlus([String? id]) async {
-    if (completer != null) {
-      completer!.complete;
-    }
-    // before all, disconnect any atmotube connected
-    await dropConnectionPlus();
-
-    // scan for atmotube
-    completer = Completer();
-    FlutterBluePlus.startScan();
-    Stopwatch stopwatch = Stopwatch()..start();
-    FlutterBluePlus.scanResults.listen(
-      (List<ScanResult> event) {
-        List names = event.map((e) => e.device.localName).toList();
-        if (names.contains(DeviceServiceConfig().deviceName)) {
-          if (id != null) {
-            device = event
-                .where((e) =>
-                    e.device.localName == DeviceServiceConfig().deviceName &&
-                    e.device.remoteId.str == id)
-                .first
-                .device;
-          } else {
-            device = event
-                .where((e) =>
-                    e.device.localName == DeviceServiceConfig().deviceName)
-                .first
-                .device;
-            print(device!.remoteId.str);
-          }
-          if (device != null) {
-            completer!.complete(device);
-          }
-          stopScan();
-          stopwatch.stop();
-          stopwatch.reset();
-        }
-        if (stopwatch.elapsed.inSeconds > 10) {
-          stopwatch.stop();
-          stopwatch.reset();
-          stopScan();
-          completer!.completeError(AtmotubeNotNearException(
-              message: 'ATMOTUBE is not near to you!'));
-        }
-      },
-    );
-    // Timer timeout = Timer(const Duration(seconds: 10), () async {
-    //   completer.complete(device);
-    //   //stopwatch.stop();
-    //   stopScan();
-    //   throw AtmotubeNotNearException(message: 'ATMOTUBE is not near to you!');
-    // });
-    // setup for later timer.periodic call
-    shouldStop = false;
-    return completer?.future;
-  } // searchAtmotube
-
-  // /// [searchAtmotube] a method that handles device connection action
-  // Future<BluetoothDevice?> searchAtmotube() async {
-  //   // before all, disconnect any atmotube connected
-  //   // await dropConnection();
-  //   // _handleBluetoothDeviceState(BluetoothDeviceState.disconnected);
-
-  //   // check if an atmotube is already connected:
-  //   var connected = await flutterBlue.connectedDevices;
-  //   for (var element in connected) {
-  //     if (element.name == DeviceServiceConfig().deviceName) {
-  //       device = element;
-  //       _handleBluetoothDeviceState(BluetoothDeviceState.connected);
-  //     } //if
-  //   } //for
-
-  //   if (_deviceState == BluetoothDeviceState.disconnected) {
-  //     // scan for atmotube
-  //     dynamic scan =
-  //         await flutterBlue.startScan(timeout: const Duration(seconds: 10));
-
-  //     for (dynamic s in scan) {
-  //       // looking for non null devices
-  //       if (s.advertisementData.serviceUuids.isNotEmpty) {
-  //         // looking for atmotube Pro
-  //         if (s.advertisementData.serviceUuids.last ==
-  //                 DeviceServiceConfig().deviceService.toLowerCase() ||
-  //             s.advertisementData.serviceUuids.last ==
-  //                 DeviceServiceConfig().deviceService) {
-  //           device = s.device;
-  //         }
-  //       }
-  //     }
-  //     if (device == null) {
-  //       throw AtmotubeNotNearException(message: 'ATMOTUBE is not near to you!');
-  //     }
-  //     _handleBluetoothDeviceState(BluetoothDeviceState.connecting);
-  //     // atmotube connection
-  //     await device!.connect();
-  //     _handleBluetoothDeviceState(BluetoothDeviceState.connected);
-  //     await handleStreams();
-  //   } //if
-
-  //   // setup for later timer.periodic call
-  //   shouldStop = false;
-  //   return device;
-  // } // searchAtmotube
 
   Future<void> handleAtmotubeStreams() async {
     // BluetoothService service = await getAtmotubeService();
@@ -233,8 +40,8 @@ class Atmotuber {
     // List<BluetoothCharacteristic> uartCharacteristics =
     //     await getCharacteristics(uartService);
 
-    if (device != null) {
-      // device!.state.listen((event) async {
+    if (connection.device != null) {
+      // connection.device!.state.listen((event) async {
       //   if (event == BluetoothDeviceState.disconnected) {
       await statusStream?.cancel();
       await subscription?.cancel();
@@ -244,55 +51,9 @@ class Atmotuber {
     }
   } //hadleStreams
 
-  Future<void> dropConnectionPlus() async {
-    if (device != null) {
-      // close the streams when atmotube no longer connected
-      cancelAllStreams();
-      device = null;
-    }
-
-    await FlutterBluePlus.stopScan();
-    //look for atmotube among connected devices
-    var connected = await FlutterBluePlus.connectedSystemDevices;
-    for (var element in connected) {
-      if (element.localName == DeviceServiceConfig().deviceName) {
-        // element.state.listen((event) {
-        //   (event);
-        // });
-        await element.disconnect();
-        getDeviceState();
-        print(deviceState);
-        shouldStop = true;
-      }
-    }
-  }
-
-  // /// [dropConnection] a method that handles device disconnection action
-  // Future<void> dropConnection() async {
-  //   // close the streams when atmotube no longer connected
-  //   handleStreams();
-  //   satm.close();
-  //   satm = StreamController();
-  //   hatm.close();
-  //   hatm = StreamController();
-
-  //   //look for atmotube among connected devices
-  //   var connected = await flutterBlue.connectedDevices;
-  //   for (var element in connected) {
-  //     if (element.name == DeviceServiceConfig().deviceName) {
-  //       element.state.listen((event) {
-  //         //(event);
-  //       });
-  //       await element.disconnect();
-  //       _handleBluetoothDeviceState(BluetoothDeviceState.disconnected);
-  //       shouldStop = true;
-  //     }
-  //   }
-  // } // dropConnection
-
   /// [cancelStreamRealTime] is a method to stop listening the Atomutber Stream objects
   Future<void> cancelStreamRealTime() async {
-    if (device != null) {
+    if (connection.device != null) {
       await satm.close();
       satm = StreamController();
       if (subscription != null) {
@@ -303,7 +64,7 @@ class Atmotuber {
 
   /// [cancelStreamHistory] is a method to stop listening the Atomutber Stream objects
   Future<void> cancelStreamHistory() async {
-    if (device != null) {
+    if (connection.device != null) {
       await hatm.close();
       hatm = StreamController();
       if (subscription2 != null) {
@@ -314,7 +75,7 @@ class Atmotuber {
 
   /// [cancelAllStreams] is a method to stop listening the Atomutber Stream objects
   void cancelAllStreams() async {
-    if (device != null) {
+    if (connection.device != null) {
       await statusStream?.cancel();
       statusStream = null;
       await subscription?.cancel();
@@ -330,16 +91,15 @@ class Atmotuber {
 
   /// [getAtmotubeService] a method that handles device ble services
   Future<BluetoothService> getAtmotubeService() async {
-    var services = await device!.discoverServices();
+    var services = await connection.device!.discoverServices();
     var service = services.firstWhere((element) =>
-        element.uuid.toString() ==
-        DeviceServiceConfig().deviceService.toLowerCase());
+        element.uuid.toString() == DeviceInfo.deviceService.toLowerCase());
     return service;
   } // getAtmotubeService
 
   /// [getUartAtmotubeService] a method that handles device ble UART services
   Future<BluetoothService> getUartAtmotubeService() async {
-    var services = await device!.discoverServices();
+    var services = await connection.device!.discoverServices();
     var service = services.firstWhere((element) =>
         element.uuid.toString() ==
         HistoryServiceConfig().serviceId.toLowerCase());
@@ -462,31 +222,26 @@ class Atmotuber {
     // status stream subscription
     BluetoothCharacteristic statusCharacteristics = characteristics.firstWhere(
         (element) =>
-            element.uuid.toString() ==
-            DeviceServiceConfig().statusCharacteristic);
+            element.uuid.toString() == DeviceInfo.statusCharacteristic);
     await statusCharacteristics.setNotifyValue(true);
     Stream<Map<String, List<int>>> status =
         statusCharacteristics.lastValueStream.map((event) => {"status": event});
     // bme stream subscription
     BluetoothCharacteristic bmeCharacteristics = characteristics.firstWhere(
-        (element) =>
-            element.uuid.toString() == DeviceServiceConfig().bmeCharacteristic);
+        (element) => element.uuid.toString() == DeviceInfo.bmeCharacteristic);
     await bmeCharacteristics.setNotifyValue(true);
     Stream<Map<String, List<int>>> bme =
         bmeCharacteristics.lastValueStream.map((event) => {"bme": event});
     // pm stream subscription
     BluetoothCharacteristic pmCharacteristics = characteristics.firstWhere(
-        (element) =>
-            element.uuid.toString() == DeviceServiceConfig().pmCharacteristic);
+        (element) => element.uuid.toString() == DeviceInfo.pmCharacteristic);
     await pmCharacteristics.setNotifyValue(true);
     Stream<Map<String, List<int>>> pm =
         pmCharacteristics.lastValueStream.map((event) => {"pm": event});
 
     // voc stream subscription
     BluetoothCharacteristic vocCharacteristics = characteristics.firstWhere(
-        (element) =>
-            element.uuid.toString() ==
-            DeviceServiceConfig().vocCharacteristics);
+        (element) => element.uuid.toString() == DeviceInfo.vocCharacteristics);
     await vocCharacteristics.setNotifyValue(true);
     Stream<Map<String, List<int>>> voc =
         vocCharacteristics.lastValueStream.map((event) => {"voc": event});

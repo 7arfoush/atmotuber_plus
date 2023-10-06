@@ -14,7 +14,8 @@ dependencies:
   #flutter_blue: ^0.8.0
   collection: ^1.16.0
   async: ^2.9.0
-  flutter_blue_plus: ^1.5.2
+  flutter_blue_plus: ^1.16.5
+  location: ^5.0.3
 
 dev_dependencies:
   flutter_test:

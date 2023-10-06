@@ -28,7 +28,7 @@ class HomePageState extends State<HomePage> {
 
   Future<void> connectDevice() async {
     //await atmotuber.searchAtmotube();
-    atm2.connect();
+    //atm2.connect();
     //await atm2.wrapper();
   }
 
@@ -106,7 +106,7 @@ class HomePageState extends State<HomePage> {
                     style: TextStyle(fontSize: 20.0),
                   ),
                   onPressed: () async {
-                    await atm2.dropConnectionPlus();
+                    //await atm2.dropConnectionPlus();
                     _status = atm2.deviceState;
                     if (_status == 'disconnected') {
                       const snackBar = SnackBar(
