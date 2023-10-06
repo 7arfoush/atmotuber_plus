@@ -7,6 +7,11 @@ import 'package:location/location.dart';
 class AtmotubeConnection {
   BluetoothAdapterState? adapterState;
   BluetoothDevice? device;
+  String deviceState = 'disconnected';
+
+  AtmotubeConnection() {
+    warm();
+  }
 
   Future<void> warm() async {
     Location location = new Location();
@@ -50,6 +55,9 @@ class AtmotubeConnection {
                 '${r.device.remoteId}: "${r.advertisementData.localName}" found! rssi: ${r.rssi}');
             device = r.device;
             await FlutterBluePlus.stopScan();
+            device!.connectionState.listen((event) {
+              deviceState = event.name;
+            });
           }
         }
       },

@@ -29,7 +29,7 @@ class Atmotuber {
   StreamSubscription<Map<String, List<int>>>? subscription;
   StreamSubscription<List<int>>? subscription2;
   StreamSubscription? statusStream;
-  String deviceState = 'disconnected';
+
   Completer<BluetoothDevice?>? completer;
 
   Future<void> handleAtmotubeStreams() async {
@@ -211,7 +211,7 @@ class Atmotuber {
   /// [wrapper] A wrapper method that handles device real-time data collection
   Future<void> wrapper({required Function callback}) async {
     // check if an atmotube is already connected and ready for the data collection
-    if (deviceState == "disconnected") {
+    if (connection.deviceState == 'disconnected') {
       throw AtmotubeConnectionException(
           message: 'Please first connect ATMOTUBE Pro');
     }
@@ -263,7 +263,7 @@ class Atmotuber {
   /// [histwrapper] A wrapper method that handles device history data collection
   Future<void> histwrapper({required Function callback}) async {
     // check if an atmotube is already connected and ready for the data collection
-    if (deviceState == "disconnected") {
+    if (connection.deviceState == "disconnected") {
       throw AtmotubeConnectionException(
           message: 'Please first connect ATMOTUBE Pro');
     }

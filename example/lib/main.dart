@@ -82,7 +82,7 @@ class HomePageState extends State<HomePage> {
                   ),
                   onPressed: () async {
                     await connectDevice();
-                    _status = atm2.deviceState;
+                    _status = atm2.connection.deviceState;
                     if (_status == 'connected') {
                       const snackBar = SnackBar(
                         content: const Text('Connected!'),
@@ -107,7 +107,7 @@ class HomePageState extends State<HomePage> {
                   ),
                   onPressed: () async {
                     //await atm2.dropConnectionPlus();
-                    _status = atm2.deviceState;
+                    _status = atm2.connection.deviceState;
                     if (_status == 'disconnected') {
                       const snackBar = SnackBar(
                         content: const Text('Not Connected anymore!'),
