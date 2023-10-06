@@ -81,4 +81,14 @@ class AtmotubeConnection {
       return;
     }
   }
+
+  Future<void> disconnect() async {
+    if (device != null) {
+      try {
+        await device!.disconnect();
+      } on Error catch (e) {
+        print(e);
+      }
+    }
+  }
 }
